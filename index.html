@@ -1530,7 +1530,7 @@ function App() {
     );
   };
   useEffect(() => {
-    if (geoTried || activeLocations.length < 2 || !isCustomerView) return;
+    if (geoTried || activeLocations.length < 1 || !isCustomerView) return;
     setGeoTried(true);
     detectLocation();
   }, [geoTried, activeLocations.length, isCustomerView]);
