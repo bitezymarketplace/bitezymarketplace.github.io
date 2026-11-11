@@ -1334,58 +1334,78 @@ function App() {
       }
     });
   };
+  const enterStaffSession = async (user, roleTab, silent) => {
+    const want = roleTab === "delivery" ? "rider" : roleTab;
+    const pr = await sb.from("profiles").select("role, full_name, location_id").eq("id", user.id).single();
+    if (pr.error || !pr.data || pr.data.role !== want) {
+      if (!silent) await sb.auth.signOut();
+      return { ok: false, msg: want === "admin" ? "This account is not an Admin account." : "This account is not a " + (want === "rider" ? "Delivery Rider" : want === "manager" ? "Area Manager" : "Partner Store") + " account. Pick the right tab above." };
+    }
+    const a = adm.current;
+    a.uid = user.id;
+    a.role = want;
+    await loadAdminData();
+    if (want === "admin") {
+      setAdminLive(true);
+      setLoggedInUser({ role: "admin", id: user.id, name: pr.data.full_name || "Super Admin", email: user.email });
+      setCurrentView("admin-dash");
+      return { ok: true };
+    }
+    const nm = pr.data.full_name || "";
+    if (want === "manager") {
+      setStaffRole("manager");
+      setLoggedInUser({ role: "manager", id: user.id, name: nm || "Area Manager", locationId: pr.data.location_id });
+      setCurrentView("manager-dash");
+      return { ok: true };
+    }
+    if (want === "partner") {
+      const st = a.restaurants.find((r) => r.ownerId === user.id);
+      if (!st) {
+        if (!silent) await sb.auth.signOut();
+        return { ok: false, msg: "No store is linked to this login yet. Ask the Super Admin." };
+      }
+      setStaffRole("partner");
+      setLoggedInUser({ role: "partner", id: user.id, ownerId: user.id, name: st.name });
+      setCurrentView("partner-dash");
+      return { ok: true };
+    }
+    if (!a.riders.some((r) => r.id === user.id)) {
+      if (!silent) await sb.auth.signOut();
+      return { ok: false, msg: "This rider login is not ready. Ask your Area Manager." };
+    }
+    setStaffRole("rider");
+    setLoggedInUser({ role: "rider", id: user.id, name: nm || "Rider" });
+    setCurrentView("delivery-dash");
+    return { ok: true };
+  };
   const liveAdminLogin = async (email, pw, roleTab = "admin") => {
     try {
       const raw = String(email || "").trim();
       const loginEmail = raw.indexOf("@") >= 0 ? raw : raw.toLowerCase() + "@staff.bitezy.app";
       const { data, error } = await sb.auth.signInWithPassword({ email: loginEmail, password: pw });
       if (error || !data || !data.user) return { ok: false, msg: roleTab === "admin" ? "Wrong email or password." : "Wrong login ID or password." };
-      const want = roleTab === "delivery" ? "rider" : roleTab;
-      const pr = await sb.from("profiles").select("role, full_name, location_id").eq("id", data.user.id).single();
-      if (pr.error || !pr.data || pr.data.role !== want) {
-        await sb.auth.signOut();
-        return { ok: false, msg: want === "admin" ? "This account is not an Admin account." : "This account is not a " + (want === "rider" ? "Delivery Rider" : want === "manager" ? "Area Manager" : "Partner Store") + " account. Pick the right tab above." };
-      }
-      const a = adm.current;
-      a.uid = data.user.id;
-      a.role = want;
-      await loadAdminData();
-      if (want === "admin") {
-        setAdminLive(true);
-        setLoggedInUser({ role: "admin", id: data.user.id, name: pr.data.full_name || "Super Admin", email: data.user.email });
-        setCurrentView("admin-dash");
-        return { ok: true };
-      }
-      const nm = pr.data.full_name || "";
-      if (want === "manager") {
-        setStaffRole("manager");
-        setLoggedInUser({ role: "manager", id: data.user.id, name: nm || "Area Manager", locationId: pr.data.location_id });
-        setCurrentView("manager-dash");
-        return { ok: true };
-      }
-      if (want === "partner") {
-        const st = a.restaurants.find((r) => r.ownerId === data.user.id);
-        if (!st) {
-          await sb.auth.signOut();
-          return { ok: false, msg: "No store is linked to this login yet. Ask the Super Admin." };
-        }
-        setStaffRole("partner");
-        setLoggedInUser({ role: "partner", id: data.user.id, ownerId: data.user.id, name: st.name });
-        setCurrentView("partner-dash");
-        return { ok: true };
-      }
-      if (!a.riders.some((r) => r.id === data.user.id)) {
-        await sb.auth.signOut();
-        return { ok: false, msg: "This rider login is not ready. Ask your Area Manager." };
-      }
-      setStaffRole("rider");
-      setLoggedInUser({ role: "rider", id: data.user.id, name: nm || "Rider" });
-      setCurrentView("delivery-dash");
-      return { ok: true };
+      return await enterStaffSession(data.user, roleTab, false);
     } catch (e) {
       return { ok: false, msg: "Could not reach the database. Check your internet and try again." };
     }
   };
+  const restoreRan = useRef(false);
+  useEffect(() => {
+    if (!live || restoreRan.current || !sb) return;
+    restoreRan.current = true;
+    (async () => {
+      try {
+        const { data } = await sb.auth.getSession();
+        const u = data && data.session && data.session.user;
+        if (!u) return;
+        const pr = await sb.from("profiles").select("role").eq("id", u.id).single();
+        const r = pr && pr.data && pr.data.role;
+        if (["admin", "manager", "partner", "rider"].indexOf(r) < 0) return;
+        await enterStaffSession(u, r === "rider" ? "delivery" : r, true);
+      } catch (e) {
+      }
+    })();
+  }, [live]);
   const liveAdminLogout = () => {
     try {
       sb.auth.signOut().finally(() => window.location.reload());
