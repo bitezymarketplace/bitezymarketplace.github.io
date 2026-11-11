@@ -7,7 +7,4 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping database
-        run: |
-          curl -fsS "https://scqxmxbzuhyasmqxuxsv.supabase.co/rest/v1/locations?select=id&limit=1" \
-            -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjcXhteGJ6dWh5YXNtcXh1eHN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwMzA0NjIsImV4cCI6MjEwOTYwNjQ2Mn0.rzzu5qpdCzabgYknroGZfgWCuA7A24NYr_DSEwzvR1k" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNjcXhteGJ6dWh5YXNtcXh1eHN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQwMzA0NjIsImV4cCI6MjEwOTYwNjQ2Mn0.rzzu5qpdCzabgYknroGZfgWCuA7A24NYr_DSEwzvR1k"
+      - run: curl -fsS "https://scqxmxbzuhyasmqxuxsv.supabase.co/rest/v1/locations?select=id&limit=1" -H "apikey: sb_publishable_MwS5K8_hUTXLZzW4-6t6KA_aDvIJBJh"
