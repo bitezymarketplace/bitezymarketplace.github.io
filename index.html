@@ -520,7 +520,7 @@ const liveOrderFromTrack = (dbId, t, extra) => ({
   createdAt: t.created_at,
   history: [{ status: t.status, time: new Date(t.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }]
 });
-const INITIAL_LOCATIONS = [{ id: "koraput", name: "Koraput", state: "Odisha", isActive: true, lat: 18.81, lng: 82.71, radiusKm: 50 }];
+const INITIAL_LOCATIONS = [{ id: "koraput", name: "Koraput", state: "Odisha", isActive: true, lat: 18.81, lng: 82.71, radiusKm: 8 }];
 const withLocation = (list) => (Array.isArray(list) ? list : []).map((x) => x && x.locationId ? x : __spreadProps(__spreadValues({}, x), { locationId: DEFAULT_LOCATION_ID }));
 const orderLocId = (o, restaurants) => o.locationId || ((restaurants || []).find((r) => r.id === o.restaurantId) || {}).locationId || DEFAULT_LOCATION_ID;
 const TOWN_LIST = [{ name: "Angul", lat: 20.84, lng: 85.1 }, { name: "Balangir", lat: 20.71, lng: 83.49 }, { name: "Balasore", lat: 21.49, lng: 86.93 }, { name: "Bargarh", lat: 21.33, lng: 83.62 }, { name: "Bhadrak", lat: 21.06, lng: 86.52 }, { name: "Bhawanipatna", lat: 19.91, lng: 83.17 }, { name: "Bhubaneswar", lat: 20.3, lng: 85.82 }, { name: "Boudh", lat: 20.84, lng: 84.33 }, { name: "Berhampur", lat: 19.31, lng: 84.79 }, { name: "Cuttack", lat: 20.46, lng: 85.88 }, { name: "Deogarh", lat: 21.54, lng: 84.73 }, { name: "Dhenkanal", lat: 20.66, lng: 85.6 }, { name: "Jagatsinghpur", lat: 20.26, lng: 86.17 }, { name: "Jajpur", lat: 20.85, lng: 86.33 }, { name: "Jeypore", lat: 18.86, lng: 82.57 }, { name: "Jharsuguda", lat: 21.86, lng: 84.01 }, { name: "Kendrapara", lat: 20.5, lng: 86.42 }, { name: "Keonjhar", lat: 21.63, lng: 85.58 }, { name: "Koraput", lat: 18.81, lng: 82.71 }, { name: "Malkangiri", lat: 18.35, lng: 81.89 }, { name: "Baripada", lat: 21.93, lng: 86.72 }, { name: "Nabarangpur", lat: 19.23, lng: 82.55 }, { name: "Nayagarh", lat: 20.13, lng: 85.1 }, { name: "Nuapada", lat: 20.81, lng: 82.54 }, { name: "Paralakhemundi", lat: 18.78, lng: 84.09 }, { name: "Phulbani", lat: 20.47, lng: 84.23 }, { name: "Puri", lat: 19.81, lng: 85.83 }, { name: "Rayagada", lat: 19.17, lng: 83.42 }, { name: "Rourkela", lat: 22.26, lng: 84.85 }, { name: "Sambalpur", lat: 21.47, lng: 83.97 }, { name: "Sonepur", lat: 20.83, lng: 83.91 }, { name: "Sundargarh", lat: 22.12, lng: 84.04 }];
@@ -823,6 +823,17 @@ function App() {
   const [geoBusy, setGeoBusy] = useState(false);
   const [geoMsg, setGeoMsg] = useState("");
   const [geoTried, setGeoTried] = useState(false);
+  const [locsReady, setLocsReady] = useState(false);
+  const [geoTown, setGeoTown] = useState("");
+  useEffect(() => {
+    if (locsReady) return;
+    if (!sb) {
+      setLocsReady(true);
+      return;
+    }
+    const t = setTimeout(() => setLocsReady(true), 6e3);
+    return () => clearTimeout(t);
+  }, [locsReady]);
   const activeLocations = locations.filter((l) => l.isActive !== false);
   const currentLocation = activeLocations.find((l) => l.id === selectedLocationId) || null;
   const isCustomerView = ["marketplace", "restaurant-detail", "order-tracking"].includes(currentView);
@@ -987,6 +998,7 @@ function App() {
         if (dead || !lc.data || !lc.data.length) return;
         window.__bzLive = true;
         setLocations(lc.data.map((l) => ({ id: l.id, name: l.name, state: l.state, isActive: l.is_active, lat: l.lat, lng: l.lng, radiusKm: Number(l.radius_km) || 50 })));
+        setLocsReady(true);
         setRestaurants(rs.data.map((r) => ({
           id: r.id,
           name: r.name,
@@ -1574,6 +1586,15 @@ function App() {
           }
         });
         try {
+          let nt = null;
+          TOWN_LIST.forEach((t) => {
+            const dd = distanceKm(latitude, longitude, t.lat, t.lng);
+            if (!nt || dd < nt.d) nt = { t, d: dd };
+          });
+          setGeoTown(nt && nt.d <= 8 ? nt.t.name : "");
+        } catch (e) {
+        }
+        try {
           window.__bzVer && window.__bzVer(best ? best.d.toFixed(1) + " km from " + best.l.name + " (limit " + (best.l.radiusKm || 50) + " km), GPS \xB1" + Math.round(pos.coords.accuracy) + " m" : "no area data");
         } catch (e) {
         }
@@ -1601,10 +1622,10 @@ function App() {
     );
   };
   useEffect(() => {
-    if (geoTried || activeLocations.length < 1 || !isCustomerView) return;
+    if (geoTried || !locsReady || activeLocations.length < 1 || !isCustomerView) return;
     setGeoTried(true);
     detectLocation();
-  }, [geoTried, activeLocations.length, isCustomerView]);
+  }, [geoTried, locsReady, activeLocations.length, isCustomerView]);
   const handleAddToCart = (item, store) => {
     if (cart.length > 0 && cart[0].restaurantId !== store.id) {
       showAlert("Your cart contains items from another store. Please complete or clear your cart first.");
@@ -1790,8 +1811,8 @@ function App() {
     MarketplaceView,
     {
       restaurants: storesHere,
-      locationName: currentLocation ? currentLocation.name : "",
-      locationLabel: currentLocation ? currentLocation.name + ", " + currentLocation.state : "Odisha",
+      locationName: currentLocation ? currentLocation.name : geoTown,
+      locationLabel: currentLocation ? currentLocation.name + ", " + currentLocation.state : geoTown ? geoTown + ", Odisha" : "Odisha",
       searchQuery,
       setSearchQuery,
       selectedCategory,
@@ -3141,7 +3162,7 @@ function AdminDashboard({ restaurants: allRestaurants, setRestaurants, menus, se
           nid = slugify(tn.name) + "-" + k;
           k += 1;
         }
-        setLocations((prev) => [...prev, { id: nid, name: tn.name, state: "Odisha", isActive: true, lat: tn.lat, lng: tn.lng, radiusKm: 50 }]);
+        setLocations((prev) => [...prev, { id: nid, name: tn.name, state: "Odisha", isActive: true, lat: tn.lat, lng: tn.lng, radiusKm: 8 }]);
         tloc = nid;
         setMgLocId(nid);
       }
@@ -3171,7 +3192,7 @@ function AdminDashboard({ restaurants: allRestaurants, setRestaurants, menus, se
         nid = slugify(tn.name) + "-" + k;
         k += 1;
       }
-      setLocations((prev) => [...prev, { id: nid, name: tn.name, state: "Odisha", isActive: true, lat: tn.lat, lng: tn.lng, radiusKm: 50 }]);
+      setLocations((prev) => [...prev, { id: nid, name: tn.name, state: "Odisha", isActive: true, lat: tn.lat, lng: tn.lng, radiusKm: 8 }]);
       mgTargetLoc = nid;
       setMgLocId(nid);
     }
