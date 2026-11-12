@@ -100,6 +100,12 @@
                 refresh();
             });
         }
+        window.__bzVer = function (t) {
+            var e = document.getElementById('bz-ver');
+            if (!e) { e = document.createElement('div'); e.id = 'bz-ver'; e.style.cssText = 'position:fixed;left:6px;bottom:2px;z-index:99998;font:10px system-ui;color:#888;pointer-events:none;background:rgba(255,255,255,.7)'; document.body.appendChild(e); }
+            e.textContent = 'v5 · ' + t;
+        };
+        document.addEventListener('DOMContentLoaded', function () { window.__bzVer('checking location…'); });
         window.__bzPushSet = function (u) {
             var id = u ? u.id : null;
             if (id === prev) return;
@@ -1546,7 +1552,8 @@ function App() {
     setSelectedRestaurant(null);
     setSearchQuery("");
     setSelectedCategory("All");
-    setCurrentView("marketplace");
+    if (window.__bzGpsPick) setCurrentView((v) => /-dash$/.test(String(v)) ? v : "marketplace");
+    else setCurrentView("marketplace");
   };
   const detectLocation = () => {
     if (!navigator.geolocation) {
@@ -1566,10 +1573,14 @@ function App() {
             if (!best || d < best.d) best = { l, d };
           }
         });
+        try {
+          window.__bzVer && window.__bzVer(best ? best.d.toFixed(1) + " km from " + best.l.name + " (limit " + (best.l.radiusKm || 50) + " km), GPS \xB1" + Math.round(pos.coords.accuracy) + " m" : "no area data");
+        } catch (e) {
+        }
         if (best && best.d <= (best.l.radiusKm || 50)) {
-          if (window.__bzStaffUser) {
-            setSelectedLocationId(best.l.id);
-          } else handleChooseLocation(best.l.id);
+          window.__bzGpsPick = true;
+          handleChooseLocation(best.l.id);
+          window.__bzGpsPick = false;
         } else {
           setSelectedLocationId("");
           setShowLocationPicker(true);
@@ -1578,6 +1589,10 @@ function App() {
       },
       (err) => {
         setGeoBusy(false);
+        try {
+          window.__bzVer && window.__bzVer("location error " + (err && err.code));
+        } catch (e) {
+        }
         setSelectedLocationId("");
         setShowLocationPicker(true);
         setGeoMsg(err && err.code === 1 ? "Location is switched off for this site. Allow it in your phone settings, or choose below." : "We could not find your location. Please choose below.");
