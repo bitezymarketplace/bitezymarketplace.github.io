@@ -756,6 +756,7 @@ function App() {
   const [loggedInUser, setLoggedInUser] = useState(null);
   useEffect(() => {
     try {
+      window.__bzStaffUser = loggedInUser && ["admin", "manager", "partner", "rider"].indexOf(loggedInUser.role) >= 0 ? loggedInUser : null;
       window.__bzPushSet && window.__bzPushSet(loggedInUser && ["admin", "manager", "partner", "rider"].indexOf(loggedInUser.role) >= 0 ? loggedInUser : null);
     } catch (e) {
     }
@@ -772,7 +773,8 @@ function App() {
     return INITIAL_LOCATIONS;
   });
   const [selectedLocationId, setSelectedLocationId] = useState(() => {
-    const saved = safeStorage.getItem("bitezy_location_v1");
+    return null;
+    const saved = null;
     if (!saved) return null;
     try {
       const v = JSON.parse(saved);
@@ -1565,18 +1567,22 @@ function App() {
           }
         });
         if (best && best.d <= (best.l.radiusKm || 50)) {
-          handleChooseLocation(best.l.id);
+          if (window.__bzStaffUser) {
+            setSelectedLocationId(best.l.id);
+          } else handleChooseLocation(best.l.id);
         } else {
           setSelectedLocationId("");
           setShowLocationPicker(true);
-          setGeoMsg("We don't deliver to your area yet. Please choose from the list below.");
+          setGeoMsg("We don't deliver to your area yet" + (best ? " (about " + Math.round(best.d) + " km from " + best.l.name + ")" : "") + ". Please choose from the list below.");
         }
       },
       (err) => {
         setGeoBusy(false);
+        setSelectedLocationId("");
+        setShowLocationPicker(true);
         setGeoMsg(err && err.code === 1 ? "Location is switched off for this site. Allow it in your phone settings, or choose below." : "We could not find your location. Please choose below.");
       },
-      { enableHighAccuracy: false, timeout: 1e4, maximumAge: 3e5 }
+      { enableHighAccuracy: true, timeout: 15e3, maximumAge: 0 }
     );
   };
   useEffect(() => {
