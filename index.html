@@ -825,6 +825,7 @@ function App() {
   const [geoTried, setGeoTried] = useState(false);
   const [locsReady, setLocsReady] = useState(false);
   const [geoTown, setGeoTown] = useState("");
+  const [geoOutside, setGeoOutside] = useState(false);
   useEffect(() => {
     if (locsReady) return;
     if (!sb) {
@@ -1573,6 +1574,7 @@ function App() {
       return;
     }
     setGeoBusy(true);
+    setGeoOutside(false);
     setGeoMsg("");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -1605,7 +1607,8 @@ function App() {
         } else {
           setSelectedLocationId("");
           setShowLocationPicker(true);
-          setGeoMsg("We don't deliver to your area yet" + (best ? " (about " + Math.round(best.d) + " km from " + best.l.name + ")" : "") + ". Please choose from the list below.");
+          setGeoOutside(true);
+          setGeoMsg("We don't deliver to your area yet" + (best ? " (about " + Math.round(best.d) + " km from " + best.l.name + ")" : "") + ". We will reach your town soon!");
         }
       },
       (err) => {
@@ -1791,7 +1794,7 @@ function App() {
       className: "w-full bg-[#FF7417] hover:bg-[#e06210] disabled:opacity-60 text-white py-3 rounded-2xl text-sm font-bold shadow-md transition-all"
     },
     geoBusy ? "Finding your location\u2026" : "\u{1F4CD} Use my current location"
-  ), geoMsg && /* @__PURE__ */ React.createElement("p", { className: "text-xs text-red-600 font-semibold", role: "status" }, geoMsg), /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-gray-400 text-center -mt-1" }, "Or choose manually. Your exact position is never saved."), /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, activeLocations.map((l) => {
+  ), geoMsg && /* @__PURE__ */ React.createElement("p", { className: "text-xs text-red-600 font-semibold", role: "status" }, geoMsg), !geoOutside && /* @__PURE__ */ React.createElement("p", { className: "text-[10px] text-gray-400 text-center -mt-1" }, "Or choose manually. Your exact position is never saved."), /* @__PURE__ */ React.createElement("div", { className: "space-y-2" }, activeLocations.filter(() => !geoOutside).map((l) => {
     const count = restaurants.filter((r) => (r.locationId || DEFAULT_LOCATION_ID) === l.id).length;
     const isCurrent = currentLocation && currentLocation.id === l.id;
     return /* @__PURE__ */ React.createElement(
